@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  #wrap { position: absolute; left: 0; top: 0; }
+  #wrap iframe, #player { width: 100%; height: 100%; border: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="player"></div></div>
+<script>
+  var q = new URLSearchParams(location.search);
+  var s = { videoid: q.get("id") || "m-bvW4pKT68", mute: true, volume: 30, fit: "cover", posx: 50, posy: 50, zoom: 100 };
+  var RATIO = 16 / 9, player = null, apiReady = false;
+
+  function cleanId(v) {
+    v = String(v || "").trim();
+    var m = v.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : v;
+  }
+  function layout() {
+    var W = innerWidth, H = innerHeight, w, h, cover = s.fit === "cover";
+    if ((W / H > RATIO) === cover) { w = W; h = W / RATIO; } else { h = H; w = H * RATIO; }
+    w *= s.zoom / 100; h *= s.zoom / 100;
+    var el = document.getElementById("wrap");
+    el.style.width = w + "px"; el.style.height = h + "px";
+    el.style.left = (W - w) * (s.posx / 100) + "px";
+    el.style.top = (H - h) * (s.posy / 100) + "px";
+  }
+  function applySound() {
+    if (!player || !player.setVolume) return;
+    player.setVolume(s.volume);
+    if (s.mute) player.mute(); else player.unMute();
+  }
+  function createPlayer() {
+    if (!apiReady) return;
+    if (player) { player.destroy(); player = null; document.getElementById("wrap").innerHTML = '<div id="player"></div>'; }
+    var id = s.videoid;
+    player = new YT.Player("player", {
+      videoId: id,
+      playerVars: { autoplay: 1, mute: 1, loop: 1, playlist: id, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3, disablekb: 1 },
+      events: {
+        onReady: function (e) { applySound(); e.target.playVideo(); },
+        onStateChange: function (e) { if (e.data === YT.PlayerState.ENDED) e.target.playVideo(); }
+      }
+    });
+  }
+  function onYouTubeIframeAPIReady() { apiReady = true; createPlayer(); }
+
+  window.addEventListener("message", function (e) {
+    if (!e.data || e.data.type !== "ytwp") return;
+    var n = e.data.settings, rebuild = false;
+    var id = cleanId(n.videoid);
+    if (id && id !== s.videoid) { s.videoid = id; rebuild = true; }
+    s.mute = n.mute; s.volume = n.volume; s.fit = n.fit;
+    s.posx = n.posx; s.posy = n.posy; s.zoom = n.zoom;
+    layout();
+    if (rebuild) createPlayer(); else applySound();
+  });
+  addEventListener("resize", layout);
+  layout();
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
